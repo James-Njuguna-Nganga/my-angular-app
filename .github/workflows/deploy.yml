@@ -1,73 +1,71 @@
-name: Deployment
+name: deploy workflow
 on:
   push:
     branches:
       - master
-jobs:
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Get code
-        uses: actions/checkout@v4
-      - name: Load and cache dependencies
-        uses: ./.github/actions/cached_deps
-      - name: Lint code
-        run: npm run lint
 
+jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - name: Get code
-        uses: actions/checkout@v4
-      - name: Load and cache dependencies
-        uses: ./.github/actions/cached_deps
-      - name: Test code
-        id: run-tests
-        run: npm run test
-      - name: Upload test report
-        if: failure() && steps.run-tests.outcome == 'failure'
+      - name: Get Code
+        uses: actions/checkout@v4 #
+
+      - name: Cache and Install Dependencies
+        id: cache-dependencies
+        uses: ./.github/actions/cache_dependencies
+
+      - name: Testing Code
+        id: test
+        run: npm run test #Angular uses karma, which needs to open chrome
+        # but since we are running these tests on github, it cant open our browser and thus
+        # we need to add,  "test": "ng test --watch=false --browsers=ChromeHeadless"
+        # in our package json file
+      - name: Upload Test Report
+        if: failure() && steps.test.outputs == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: test-report
           path: test.json
-
   build:
     needs: test
     runs-on: ubuntu-latest
     steps:
-      - name: Get code
+      - name: Get Code
         uses: actions/checkout@v4
-      - name: Install Deps
-        run: npm ci
-      - name: Build website
+
+      - name: Install Dependencies
+        uses: ./.github/actions/cache_dependencies
+
+      - name: Build the App
         run: npm run build
-      - name: Upload artifacts
+
+      - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
           name: dist-files
           path: dist
-
   deploy:
     needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Get Code
         uses: actions/checkout@v4
-      - name: Get build artifacts
+
+      - name: Get Previously Built Artifact
         uses: actions/download-artifact@v4
         with:
           name: dist-files
           path: ./dist
-      - name: Output contents
-        run: ls ./dist
-      - name: Deploy site
-        id: deploy
-        uses: ./.github/actions/deployment
+
+      - name: Deploy App
+        id: deploy-step
+        uses: ./.github/actions/deployment #pass the path to the action file that contains deployment logic
         env:
-          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-         AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
+         AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
+         AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
         with:
           bucketName: myangular-dep
-          distFiles: ./dist
-      - name: Output link
-        run: echo "${{ steps.deploy.outputs.URL }}"
+          distFiles: ./dist/angular-app/browser
+      - name: Website Link
+        run: echo "${{steps.deploy-step.outputs.URL}}"

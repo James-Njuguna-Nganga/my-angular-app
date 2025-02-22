@@ -1,32 +1,22 @@
-name: Cache & Install Dependencies and Deploy to S3
-description: This Action will simplify caching and installing dependencies and deploying to S3
+# This is an action that will be used to cache dependencies
+# It will be called in the workflow file by passing the path to THIS action
+name: Cache Dependencies
+description: This Action will cache Dependencies
 runs:
-  using: "composite"
+  using: "composite" # There are three types of actions, composite, javascript, docker
+
+  #in here we only need two steps,
+  # 1- Cache the dependencies
+  # 2- Install them from the cache
   steps:
-    - name: Cache dependencies
-      id: cache
-      uses: actions/cache@v3
+    - name: Cache Dependencies
+      id: cache # we use the id to call this step at a later stage in time, (a reference)
+      uses: actions/cache@v4
       with:
         path: node_modules
         key: deps-node-modules-${{ hashFiles('**/package-lock.json') }}
 
-    - name: Install dependencies
+    - name: Install Dependencies
       if: steps.cache.outputs.cache-hit != 'true'
       run: npm ci
-      shell: bash
-
-    - name: Build Angular app
-      run: npm run build --prod
-      shell: bash
-
-    - name: Deploy to S3
-      env:
-        AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
-        AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-        AWS_REGION: ${{ secrets.AWS_REGION }}
-        S3_BUCKET: ${{ secrets.S3_BUCKET }}
-      run: |
-        aws s3 sync ./dist/your-angular-app s3://$S3_BUCKET --delete
-      shell: bash
-
-# for steps that uses run you must specify the shell to be used
+      shell: bash # for steps that uses run you must specify the shell to be used
