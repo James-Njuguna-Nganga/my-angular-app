@@ -9,7 +9,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Get Code
-        uses: actions/checkout@v4 #
+        uses: actions/checkout@v4
 
       - name: Cache and Install Dependencies
         id: cache-dependencies
@@ -17,16 +17,15 @@ jobs:
 
       - name: Testing Code
         id: test
-        run: npm run test #Angular uses karma, which needs to open chrome
-        # but since we are running these tests on github, it cant open our browser and thus
-        # we need to add,  "test": "ng test --watch=false --browsers=ChromeHeadless"
-        # in our package json file
+        run: npm run test # Ensure this command works locally and uses ChromeHeadless
+
       - name: Upload Test Report
-        if: failure() && steps.test.outputs == 'failure'
+        if: failure() && steps.test.outcome == 'failure'
         uses: actions/upload-artifact@v4
         with:
           name: test-report
           path: test.json
+
   build:
     needs: test
     runs-on: ubuntu-latest
@@ -45,6 +44,7 @@ jobs:
         with:
           name: dist-files
           path: dist
+
   deploy:
     needs: build
     runs-on: ubuntu-latest
@@ -60,12 +60,13 @@ jobs:
 
       - name: Deploy App
         id: deploy-step
-        uses: ./.github/actions/deployment #pass the path to the action file that contains deployment logic
+        uses: ./.github/actions/deployment
         env:
-         AWS_ACCESS_KEY_ID: ${{secrets.AWS_ACCESS_KEY_ID}}
-         AWS_SECRET_ACCESS_KEY: ${{secrets.AWS_SECRET_ACCESS_KEY}}
+          AWS_ACCESS_KEY_ID: ${{ secrets.AWS_ACCESS_KEY_ID }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
         with:
           bucketName: myangular-dep
           distFiles: ./dist/angular-app/browser
+
       - name: Website Link
-        run: echo "${{steps.deploy-step.outputs.URL}}"
+        run: echo "${{ steps.deploy-step.outputs.URL }}"
